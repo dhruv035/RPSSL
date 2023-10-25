@@ -37,6 +37,7 @@ enum Move {
 
 const Home: NextPage = () => {
   const publicClient = usePublicClient({ chainId: 80001 });
+  const [warning,setWarning]=useState(false)
   const { address } = useAccount();
   const { data: client } = useWalletClient();
   const [target, setTarget] = useState<string | null>(null);
@@ -361,6 +362,7 @@ const Home: NextPage = () => {
                 step={0.001}
               ></input>
               <label className="mt-4">Enter address to challenge</label>
+              <div hidden={!warning} className="text-red-600 text-[30px]">Please enter a different wallet address than your own</div>
               <input
                 className="border-2 rounded-[10px]"
                 type="string"
@@ -372,7 +374,11 @@ const Home: NextPage = () => {
               <button
                 className="border-2 mt-4 bg-amber-300 rounded-[10px] w-[80px]"
                 onClick={() => {
-                  handleCommit();
+                  console.log("target",target,address)
+                  if(target==address)
+                  setWarning(true)
+                  else {setWarning(false)
+                  handleCommit();}
                 }}
               >
                 Confirm
