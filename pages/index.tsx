@@ -328,7 +328,9 @@ const Home: NextPage = () => {
         <button
           className="border-2 bg-blue-400 rounded-[10px] mx-3 w-[100px] mr-4"
           onClick={reset}
-        >Reset State</button>
+        >
+          Reset State
+        </button>
       </div>
       <div className="flex w-3/4 h-max mt-40 self-center justify-center">
         <div className="flex w-3/4 justify-center self-centernpm r">
@@ -387,22 +389,26 @@ const Home: NextPage = () => {
             )
           ) : user === "play" ? (
             dataReads && address === dataReads[3].result ? (
-              <div>
-                <div>Staked amount is {stake}</div>
-                <div className="radio-group">
-                  <RadioGroup radio={radio} setRadio={setRadio} />
+              dataReads[1] && Number(dataReads[1].result !== 0) ? (
+                <div className="text-[60px] text-red-400">Please wait for the Creator to reveal their move</div>
+              ) : (
+                <div>
+                  <div>Staked amount is {stake}</div>
+                  <div className="radio-group">
+                    <RadioGroup radio={radio} setRadio={setRadio} />
+                  </div>
+                  <button
+                    className="border-2 bg-amber-300 rounded-[10px] w-[80px]"
+                    onClick={() => {
+                      handlePlay();
+                    }}
+                  >
+                    Confirm
+                  </button>
                 </div>
-                <button
-                  className="border-2 bg-amber-300 rounded-[10px] w-[80px]"
-                  onClick={() => {
-                    handlePlay();
-                  }}
-                >
-                  Confirm
-                </button>
-              </div>
+              )
             ) : (
-              <div>Connected Wallet is not The player</div>
+              <div className="text-[60px] text-red-400">Connected Wallet is not The player</div>
             )
           ) : stage !== "reveal" ? (
             <div className="flex flex-col">
@@ -446,7 +452,9 @@ const Home: NextPage = () => {
               </button>
             </div>
           ) : dataReads && dataReads[4].result !== address ? (
-            <div>Selected Wallet is not the creator</div>
+            <div className="text-[60px] text-red-400">Selected Wallet is not the creator</div>
+          ) : dataReads && dataReads[1] && Number(dataReads[1].result) === 0 ? (
+            <div className="text-[60px] text-red-400">Please Wait for the Player to play their move</div>
           ) : (
             <div className="flex flex-col text-[60px]">
               Reveal your Choice
