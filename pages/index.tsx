@@ -36,7 +36,7 @@ enum Move {
 }
 
 const Home: NextPage = () => {
-  const publicClient = usePublicClient({ chainId: 80001 });
+  const publicClient = usePublicClient({ chainId: 5 });
   const [warning,setWarning]=useState(false)
   const { address } = useAccount();
   const { data: client } = useWalletClient();
@@ -182,7 +182,7 @@ const Home: NextPage = () => {
   }, [dataReads]);
 
   const handleCommit = async () => {
-    if (client?.chain.id !== 80001 || !address) {
+    if (client?.chain.id !== 5 || !address) {
       console.log("Wrong Chain");
       return;
     }
@@ -218,7 +218,7 @@ const Home: NextPage = () => {
     try {
       const receipt = await publicClient.waitForTransactionReceipt({
         hash: hash,
-        confirmations: 3,
+        confirmations: 1,
       });
       console.log("RECEIPT", receipt);
     } catch (error) {
@@ -254,7 +254,7 @@ const Home: NextPage = () => {
     });
     try {
       const receipt = await publicClient.waitForTransactionReceipt({
-        confirmations: 3,
+        confirmations: 1,
         hash: hash,
       });
     } catch (err) {
@@ -276,7 +276,7 @@ const Home: NextPage = () => {
 
     try {
       const receipt = await publicClient.waitForTransactionReceipt({
-        confirmations: 3,
+        confirmations: 1,
         hash: hash,
       });
     } catch (err) {
@@ -301,9 +301,9 @@ const Home: NextPage = () => {
             <div className="text-[60px] text-amber-400">
               Please Connect Wallet
             </div>
-          ) : !client || client.chain?.id !== 80001 ? (
+          ) : !client || client.chain?.id !== 5 ? (
             <div className="text-[100px] text-red-600">
-              Wrong Chain, Please Select the Mumbai Network
+              Wrong Chain, Please Select the Goerli Network
             </div>
           ) : user === "init" ? (
             <div className="text-[60px] flex flex-col">
