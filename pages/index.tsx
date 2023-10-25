@@ -302,7 +302,7 @@ const Home: NextPage = () => {
             </div>
           ) : !client || client.chain?.id !== 80001 ? (
             <div className="text-[100px] text-red-600">
-              Wrong Chain, Please Select the goerli Network
+              Wrong Chain, Please Select the Mumbai Network
             </div>
           ) : user === "init" ? (
             <div className="text-[60px] flex flex-col">
