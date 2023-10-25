@@ -182,7 +182,7 @@ const Home: NextPage = () => {
       const difference =
         Math.floor(Date.now() / 1000) - Number(dataReads[2].result);
       console.log("Diff", difference);
-      if (difference > 60 * 60 * 5) {
+      if (difference > 60 * 5) {
         if (dataReads[1] && Number(dataReads[1].result) === 0)
           setIsCreator(false);
         else setIsCreator(true);
