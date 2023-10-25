@@ -326,10 +326,10 @@ const Home: NextPage = () => {
       <div className="flex flex-row-reverse mt-4 mr-4">
         <ConnectButton />
         <button
-          className="border-2 bg-blue-400 rounded-[10px] mx-3 w-[100px] mr-4"
+          className="border-2 bg-blue-400 rounded-[10px] mx-3 w-[150px] mr-4"
           onClick={reset}
         >
-          Reset State
+          Flush Storage
         </button>
       </div>
       <div className="flex w-3/4 h-max mt-40 self-center justify-center">
