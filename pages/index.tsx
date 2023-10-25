@@ -5,19 +5,14 @@ const web3 = require("web3");
 import Head from "next/head";
 import RadioGroup from "./components/Radio";
 import { ChangeEvent, useEffect, useState } from "react";
-import styles from "../styles/Home.module.css";
 import {
   useAccount,
-  useContractRead,
   useContractReads,
   useContractWrite,
-  useNetwork,
   usePublicClient,
-  useWaitForTransaction,
   useWalletClient,
 } from "wagmi";
 import {
-  signatureToHex,
   parseEther,
   hashMessage,
   hexToBigInt,
@@ -25,7 +20,6 @@ import {
   formatEther,
 } from "viem";
 import contractabi from "../contractabi.json";
-import { waitForTransactionReceipt } from "viem/_types/actions/public/waitForTransactionReceipt";
 enum Move {
   Null = 0,
   Rock = 1,
@@ -36,8 +30,10 @@ enum Move {
 }
 
 const Home: NextPage = () => {
+  const [isCreator, setIsCreator] = useState<boolean>(false);
   const publicClient = usePublicClient({ chainId: 5 });
-  const [warning,setWarning]=useState(false)
+  const [warning, setWarning] = useState(false);
+  const [timer, setTimer] = useState<boolean>(false);
   const { address } = useAccount();
   const { data: client } = useWalletClient();
   const [target, setTarget] = useState<string | null>(null);
@@ -48,7 +44,6 @@ const Home: NextPage = () => {
   const [user, setUser] = useState<string>("init");
   const contractAddress = localStorage.getItem("contract") as `0x${string}`;
   const [stake, setStake] = useState<string>("0");
-
   const { data: dataReads, error: errorReads } = useContractReads({
     contracts: [
       {
@@ -132,53 +127,68 @@ const Home: NextPage = () => {
         functionName: "j2",
       },
       {
-        address:contractAddress,
-        abi:[{
-          "constant": true,
-          "inputs": [],
-          "name": "j1",
-          "outputs": [
-            {
-              "name": "",
-              "type": "address"
-            }
-          ],
-          "payable": false,
-          "stateMutability": "view",
-          "type": "function"
-        }],
-        functionName:"j1"
-      }
+        address: contractAddress,
+        abi: [
+          {
+            constant: true,
+            inputs: [],
+            name: "j1",
+            outputs: [
+              {
+                name: "",
+                type: "address",
+              },
+            ],
+            payable: false,
+            stateMutability: "view",
+            type: "function",
+          },
+        ],
+        functionName: "j1",
+      },
     ],
   });
 
   console.log("DATAREADS", dataReads);
 
-  const {
-    data: dataPlay,
-    isError: errorPlay,
-    isLoading: loadingPlay,
-    writeAsync: writePlay,
-  } = useContractWrite({
+  const { writeAsync: writePlay } = useContractWrite({
     abi: contractabi.abi,
     address: contractAddress,
     functionName: "play",
   });
 
-  const {
-    data: dataReveal,
-    isError: errorReveal,
-    isLoading: loadingReveal,
-    writeAsync: writeReveal,
-  } = useContractWrite({
+  const { writeAsync: writeReveal } = useContractWrite({
     abi: contractabi.abi,
     address: contractAddress,
     functionName: "solve",
   });
+  const { writeAsync: writej1Timeout } = useContractWrite({
+    abi: contractabi.abi,
+    address: contractAddress,
+    functionName: "j1Timeout",
+  });
+
+  const { writeAsync: writej2Timeout } = useContractWrite({
+    abi: contractabi.abi,
+    address: contractAddress,
+    functionName: "j2Timeout",
+  });
 
   useEffect(() => {
-    if (dataReads && dataReads[0] && typeof dataReads[0].result === "bigint")
+    if (!dataReads) return;
+    if (dataReads[0] && typeof dataReads[0].result === "bigint")
       setStake(formatEther(dataReads[0].result));
+    if (dataReads[2] && typeof dataReads[2].result === "bigint") {
+      const difference =
+        Math.floor(Date.now() / 1000) - Number(dataReads[2].result);
+      console.log("Diff", difference);
+      if (difference > 60 * 60 * 5) {
+        if (dataReads[1] && Number(dataReads[1].result) === 0)
+          setIsCreator(false);
+        else setIsCreator(true);
+        setTimer(true);
+      }
+    }
   }, [dataReads]);
 
   const handleCommit = async () => {
@@ -247,6 +257,7 @@ const Home: NextPage = () => {
     const saltHex = hashMessage(signature);
     const salt = hexToBigInt(saltHex);
     const move = localStorage.getItem("c1Move");
+
     if (!move) return;
 
     const { hash } = await writeReveal({
@@ -260,6 +271,10 @@ const Home: NextPage = () => {
     } catch (err) {
       //still works
     }
+    reset();
+  };
+
+  const reset = () => {
     localStorage.setItem("stage", "commit");
     localStorage.setItem("contract", "");
     localStorage.setItem("c1Move", "");
@@ -275,7 +290,7 @@ const Home: NextPage = () => {
     });
 
     try {
-      const receipt = await publicClient.waitForTransactionReceipt({
+      await publicClient.waitForTransactionReceipt({
         confirmations: 1,
         hash: hash,
       });
@@ -290,10 +305,30 @@ const Home: NextPage = () => {
     //})
     setUser("init");
   };
+
+  const handleTimeout = async () => {
+    if (!dataReads) return;
+    let txHash;
+    if (isCreator) {
+      const { hash } = await writej1Timeout();
+      txHash = hash;
+    } else {
+      const { hash } = await writej2Timeout();
+      txHash = hash;
+    }
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: txHash,
+    });
+    reset();
+  };
   return (
     <div className="w-[100vw] h-[100vh] flex flex-col">
       <div className="flex flex-row-reverse mt-4 mr-4">
         <ConnectButton />
+        <button
+          className="border-2 bg-blue-400 rounded-[10px] mx-3 w-[100px] mr-4"
+          onClick={reset}
+        >Reset State</button>
       </div>
       <div className="flex w-3/4 h-max mt-40 self-center justify-center">
         <div className="flex w-3/4 justify-center self-centernpm r">
@@ -306,27 +341,50 @@ const Home: NextPage = () => {
               Wrong Chain, Please Select the Goerli Network
             </div>
           ) : user === "init" ? (
-            <div className="text-[60px] flex flex-col">
-              Please select action type
-              <div className="flex text-[20px] justify-center flex-row mt-4">
-                <button
-                  className="border-2 bg-blue-400 rounded-[10px] mx-3 w-[100px]"
-                  onClick={() => {
-                    setUser("play");
-                  }}
-                >
-                  Play
-                </button>
-                <button
-                  className="border-2 bg-blue-400 rounded-[10px] mx-3 w-[100px]"
-                  onClick={() => {
-                    setUser("create");
-                  }}
-                >
-                  Create
-                </button>
+            timer && dataReads && dataReads[4] && dataReads[3] ? (
+              <div className="flex flex-col items-center text-[30px] text-blue-600">
+                Turn has expired for the{" "}
+                {!isCreator ? "Player. Creator may" : "Creator. Player may"}{" "}
+                call the timeout function;
+                {(isCreator && address === dataReads[3].result) ||
+                (!isCreator && address === dataReads[4].result) ? (
+                  <button
+                    className="mt-4 text-black border-2 rounded-[10px] bg-blue-700 w-[200px]"
+                    onClick={() => {
+                      handleTimeout();
+                    }}
+                  >
+                    Call Timeout
+                  </button>
+                ) : (
+                  <div>
+                    Select the Right wallet to call the timeout function
+                  </div>
+                )}
               </div>
-            </div>
+            ) : (
+              <div className="text-[60px] flex flex-col">
+                Please select action type
+                <div className="flex text-[20px] justify-center flex-row mt-4">
+                  <button
+                    className="border-2 bg-blue-400 rounded-[10px] mx-3 w-[100px]"
+                    onClick={() => {
+                      setUser("play");
+                    }}
+                  >
+                    Play
+                  </button>
+                  <button
+                    className="border-2 bg-blue-400 rounded-[10px] mx-3 w-[100px]"
+                    onClick={() => {
+                      setUser("create");
+                    }}
+                  >
+                    Create
+                  </button>
+                </div>
+              </div>
+            )
           ) : user === "play" ? (
             dataReads && address === dataReads[3].result ? (
               <div>
@@ -362,7 +420,9 @@ const Home: NextPage = () => {
                 step={0.001}
               ></input>
               <label className="mt-4">Enter address to challenge</label>
-              <div hidden={!warning} className="text-red-600 text-[30px]">Please enter a different wallet address than your own</div>
+              <div hidden={!warning} className="text-red-600 text-[30px]">
+                Please enter a different wallet address than your own
+              </div>
               <input
                 className="border-2 rounded-[10px]"
                 type="string"
@@ -374,17 +434,20 @@ const Home: NextPage = () => {
               <button
                 className="border-2 mt-4 bg-amber-300 rounded-[10px] w-[80px]"
                 onClick={() => {
-                  console.log("target",target,address)
-                  if(target==address)
-                  setWarning(true)
-                  else {setWarning(false)
-                  handleCommit();}
+                  console.log("target", target, address);
+                  if (target == address) setWarning(true);
+                  else {
+                    setWarning(false);
+                    handleCommit();
+                  }
                 }}
               >
                 Confirm
               </button>
             </div>
-          ) :dataReads&&dataReads[4].result!==address?(<div>Selected Wallet is not the creator</div>): (
+          ) : dataReads && dataReads[4].result !== address ? (
+            <div>Selected Wallet is not the creator</div>
+          ) : (
             <div className="flex flex-col text-[60px]">
               Reveal your Choice
               <button
