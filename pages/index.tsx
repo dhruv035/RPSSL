@@ -372,7 +372,7 @@ const Home: NextPage = () => {
                       setUser("play");
                     }}
                   >
-                    Play
+                    Player
                   </button>
                   <button
                     className="border-2 bg-blue-400 rounded-[10px] mx-3 w-[100px]"
@@ -380,7 +380,7 @@ const Home: NextPage = () => {
                       setUser("create");
                     }}
                   >
-                    Create
+                    Creator
                   </button>
                 </div>
               </div>
