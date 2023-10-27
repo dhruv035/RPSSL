@@ -30,6 +30,13 @@ import {
   removeDeployement,
 } from "../frontend-services/mongoServices";
 
+import {
+  Alchemy,
+  AssetTransfersCategory,
+  Network,
+  AssetTransfersResult,
+} from "alchemy-sdk";
+
 export type Deployement = {
   creator: string;
   address: string;
@@ -51,10 +58,18 @@ const Home: NextPage = () => {
   const [selectedDeploy, setSelectedDeploy] = useState<Deployement | null>(
     null
   );
+  const [contractData, setContractData] = useState<AssetTransfersResult[]>([]);
   const [stake, setStake] = useState<string>("");
+  const [winner, setWinner] = useState<string>("");
   const [deployements, setDeployements] = useState<Array<Deployement> | null>(
     null
   );
+
+  const config = {
+    apiKey: process.env.NEXT_PUBLIC_ALCHEMY_KEY,
+    network: Network.ETH_GOERLI,
+  };
+  const alchemy = new Alchemy(config);
 
   //references for buttons
   const refTimeout = useRef<HTMLButtonElement>(null);
@@ -64,6 +79,7 @@ const Home: NextPage = () => {
   const refBack = useRef<HTMLButtonElement>(null);
 
   //contract reads
+
   const { data: dataReads, error: errorReads } = useContractReads({
     watch: true,
     contracts: [
@@ -207,10 +223,9 @@ const Home: NextPage = () => {
     }
   }, [dataReads]);
 
-  console.log("HHERE")
   useEffect(() => {
-    if(!dataReads)return;
-    let intervalId:any;
+    if (!dataReads) return;
+    let intervalId: any;
 
     if (diff > 60 * 5 && dataReads) {
       if (dataReads[1] && Number(dataReads[1].result) === 0)
@@ -218,8 +233,7 @@ const Home: NextPage = () => {
       else setIsCreator(true);
       setTimer(true);
       return;
-    }
-    else{
+    } else {
       intervalId = setInterval(() => setDiff(diff + 1), 1000);
     }
     return () => {
@@ -234,7 +248,34 @@ const Home: NextPage = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (!selectedDeploy?.address) {
+      setContractData([]);
+    } else fetchContractTx();
+  }, [selectedDeploy]);
   //Functions
+
+  const fetchContractTx = async () => {
+    const data = await alchemy.core.getAssetTransfers({
+      fromBlock: "0x0",
+      fromAddress: selectedDeploy?.address ? selectedDeploy.address : undefined,
+      category: [
+        "external",
+        "internal",
+        "erc20",
+        "erc721",
+        "erc1155",
+      ] as Array<AssetTransfersCategory>,
+    });
+    console.log("ABC", data);
+    if (data.transfers.length) {
+      setContractData(data.transfers);
+      if (data.transfers.length === 2) {
+        setWinner("tie");
+      } else data.transfers[0].to && setWinner(data.transfers[0].to);
+    }
+  };
+
   const loadDeployements = async () => {
     const result = await getDeployements();
     setDeployements(result.data);
@@ -357,8 +398,6 @@ const Home: NextPage = () => {
       hash: hash,
     });
 
-    await removeDeployement(selectedDeploy);
-
     reset();
     setUser("select");
 
@@ -407,7 +446,7 @@ const Home: NextPage = () => {
     const receipt = await publicClient.waitForTransactionReceipt({
       hash: txHash,
     });
-    await removeDeployement(selectedDeploy);
+
     reset();
     setUser("select");
 
@@ -489,7 +528,7 @@ const Home: NextPage = () => {
               <div>
                 {selectedDeploy?.address && dataReads ? ( //If a selectedDeploy.address is selected and its data has been fetched i
                   <>
-                    {timer ? ( // Whether the timer has expired
+                    {timer ? winner!==""?winner==="tie"?(<div>Its a Tie</div>):winner==address?.toLowerCase()?(<div>You Got the Funds</div>):(<div>{winner +" "}Received the Funds</div>):( // Whether the timer has expired
                       <>
                         <div className="flex flex-col items-center text-[30px] text-blue-600">
                           Turn has expired for the{" "}
