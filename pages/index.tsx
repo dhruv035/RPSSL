@@ -314,11 +314,11 @@ const Home: NextPage = () => {
   };
 
   const handleBack = () => {
-    if (user !== "init") setUser("init");
+    if (user !== "init" &&user!=="select") setUser("init");
     else {
       setSelectedDeploy(null);
       setUser("select");
-      refBack.current?.setAttribute("disabled","true")
+      
     }
   };
 
@@ -422,7 +422,7 @@ const Home: NextPage = () => {
       <div className="flex w-3/4 h-max mt-40 self-center justify-center">
         <div className="flex w-3/4 justify-center self-center r">
           <div>
-          <button className="outline-2 rounded-[10px] bg-blue-300 w-[100px] ml-4 disabled:bg-gray-300" disabled={true} onClick={handleBack}>
+          <button ref={refBack} className="outline-2 rounded-[10px] bg-blue-300 w-[100px] ml-4 disabled:bg-gray-300"  onClick={handleBack}>
           Go Back
           </button>
             <br></br>
@@ -462,8 +462,11 @@ const Home: NextPage = () => {
                 <button
                   className="border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[200px]"
                   onClick={() => {
+                    console.log(refBack.current)
+                    refBack.current?.setAttribute("disabled","false")
                     setSelectedDeploy(null);
                     setUser("init");
+                    
                   }}
                 >
                   Start New Game
