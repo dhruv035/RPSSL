@@ -40,7 +40,6 @@ import {
 import { element } from "@rainbow-me/rainbowkit/dist/css/reset.css";
 
 export type Deployement = {
-  creator: string;
   address: string;
   j1?: string;
   j2?: string;
@@ -445,7 +444,6 @@ const Home: NextPage = () => {
     });
 
     const newDeployement: Deployement = {
-      creator: address,
       address: deployAddress,
     };
     const updation = await addDeployement(newDeployement);
