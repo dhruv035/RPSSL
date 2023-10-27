@@ -1,7 +1,7 @@
 import clientPromise from "../../db/database";
 export default async function handler(req, res) {
   const client = await clientPromise;
-  const db = client.db("Bot");
+  const db = await client.db("Bot");
   if (req.method === "GET") {
     const data = await db.collection("Deployements").find({}).toArray((err, res) => {
       if (err) throw err;
