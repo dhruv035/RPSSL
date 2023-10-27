@@ -61,6 +61,7 @@ const Home: NextPage = () => {
   const refReveal = useRef<HTMLButtonElement>(null);
   const refPlay = useRef<HTMLButtonElement>(null);
   const refDeploy = useRef<HTMLButtonElement>(null);
+  const refBack = useRef<HTMLButtonElement>(null);
 
   //contract reads
   const { data: dataReads, error: errorReads } = useContractReads({
@@ -314,7 +315,11 @@ const Home: NextPage = () => {
 
   const handleBack = () => {
     if (user !== "init") setUser("init");
-    else setUser("select");
+    else {
+      setSelectedDeploy(null);
+      setUser("select");
+      refBack.current?.setAttribute("disabled","true")
+    }
   };
 
   const handleStake = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -417,6 +422,9 @@ const Home: NextPage = () => {
       <div className="flex w-3/4 h-max mt-40 self-center justify-center">
         <div className="flex w-3/4 justify-center self-center r">
           <div>
+          <button className="outline-2 rounded-[10px] bg-blue-300 w-[100px] ml-4 disabled:bg-gray-300" disabled={true} onClick={handleBack}>
+          Go Back
+          </button>
             <br></br>
             <br></br>
             <br></br>
@@ -442,6 +450,7 @@ const Home: NextPage = () => {
                             onClick={() => {
                               setSelectedDeploy(deployement);
                               setUser("init");
+                              refBack.current?.setAttribute("disabled","false")
                             }}
                           >
                             Select
