@@ -267,6 +267,10 @@ const Home: NextPage = () => {
         selectedDeploy.address + ":" + address + ":move:"
       );
       if (move?.length) setUserMove(move);
+      else if(address!=selectedDeploy.j1&&dataReads)
+      {
+        setUserMove(Number(dataReads[1].result).toString())
+      }
       fetchContractTx();
     }
   }, [selectedDeploy]);
