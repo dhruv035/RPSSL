@@ -9,6 +9,7 @@ import { ChangeEvent, useEffect, useState, useRef } from "react";
 import {
   useAccount,
   useBalance,
+  readContracts,
   useContractReads,
   useContractWrite,
   usePublicClient,
@@ -36,10 +37,13 @@ import {
   Network,
   AssetTransfersResult,
 } from "alchemy-sdk";
+import { element } from "@rainbow-me/rainbowkit/dist/css/reset.css";
 
 export type Deployement = {
   creator: string;
   address: string;
+  j1?: string;
+  j2?: string;
 };
 const Home: NextPage = () => {
   //states
@@ -55,6 +59,7 @@ const Home: NextPage = () => {
   const [target, setTarget] = useState<string | null>(null);
   const [radio, setRadio] = useState<number>(0);
   const [user, setUser] = useState<string>("select");
+  const [userMove, setUserMove] = useState<string>("");
   const [selectedDeploy, setSelectedDeploy] = useState<Deployement | null>(
     null
   );
@@ -64,6 +69,7 @@ const Home: NextPage = () => {
   const [deployements, setDeployements] = useState<Array<Deployement> | null>(
     null
   );
+  console.log("HEH", winner);
 
   const config = {
     apiKey: process.env.NEXT_PUBLIC_ALCHEMY_KEY,
@@ -210,6 +216,7 @@ const Home: NextPage = () => {
     functionName: "j2Timeout",
   });
 
+  console.log("MOVE", userMove);
   //sideEffects
   useEffect(() => {
     if (!dataReads) return;
@@ -250,10 +257,29 @@ const Home: NextPage = () => {
 
   useEffect(() => {
     if (!selectedDeploy?.address) {
-      setContractData([]);
-    } else fetchContractTx();
+      {
+        setContractData([]);
+        setWinner("");
+        setUserMove("");
+      }
+    } else {
+      const move = localStorage.getItem(
+        selectedDeploy.address + ":" + address + ":move:"
+      );
+      if (move?.length) setUserMove(move);
+      fetchContractTx();
+    }
   }, [selectedDeploy]);
   //Functions
+  useEffect(() => {
+    loadDeployements();
+    if (selectedDeploy) {
+      const move = localStorage.getItem(
+        selectedDeploy.address + ":" + address + ":move:"
+      );
+      if (move?.length) setUserMove(move);
+    }
+  }, [address]);
 
   const fetchContractTx = async () => {
     const data = await alchemy.core.getAssetTransfers({
@@ -278,7 +304,65 @@ const Home: NextPage = () => {
 
   const loadDeployements = async () => {
     const result = await getDeployements();
-    setDeployements(result.data);
+    console.log("HERE", result);
+    const data = await Promise.all(
+      result.data.map((data: Deployement) => {
+        return new Promise(async (resolve, reject) => {
+          const a = await readContracts({
+            contracts: [
+              {
+                address: data.address as `0x${string}`,
+                abi: [
+                  {
+                    constant: true,
+                    inputs: [],
+                    name: "j2",
+                    outputs: [
+                      {
+                        name: "",
+                        type: "address",
+                      },
+                    ],
+                    payable: false,
+                    stateMutability: "view",
+                    type: "function",
+                  },
+                ],
+                functionName: "j2",
+              },
+              {
+                address: data.address as `0x${string}`,
+                abi: [
+                  {
+                    constant: true,
+                    inputs: [],
+                    name: "j1",
+                    outputs: [
+                      {
+                        name: "",
+                        type: "address",
+                      },
+                    ],
+                    payable: false,
+                    stateMutability: "view",
+                    type: "function",
+                  },
+                ],
+                functionName: "j1",
+              },
+            ],
+          });
+          const fetchData = { ...data, j2: a[0].result, j1: a[1].result };
+          resolve(fetchData);
+        });
+      })
+    );
+    console.log("CHE", address, data, data[0].j2 == address);
+    const filteredData = data.filter((element) => {
+      return element.j1 == address || element.j2 == address;
+    });
+    console.log("FilteredData", filteredData);
+    setDeployements(filteredData);
   };
 
   const handleCommit = async () => {
@@ -317,8 +401,6 @@ const Home: NextPage = () => {
       return;
     }
     const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
-
-    localStorage.setItem("c1Move", radio.toString());
     const signature = await client?.signMessage({ message: nonce });
     if (!signature) return;
     const saltHex = hashMessage(signature);
@@ -327,7 +409,7 @@ const Home: NextPage = () => {
       { t: "uint8", v: radio },
       { t: "uint256", v: salt }
     );
-    localStorage.setItem("salt:" + address, saltHex);
+
     const txNonce = await publicClient.getTransactionCount({
       address: address,
     });
@@ -336,6 +418,12 @@ const Home: NextPage = () => {
       from: address,
       nonce: bigNonce,
     });
+
+    localStorage.setItem(
+      deployAddress + ":" + address + ":move:",
+      radio.toString()
+    );
+    localStorage.setItem(deployAddress + ":" + address + ":salt:", saltHex);
     const hash = await client?.deployContract({
       abi: contractabi.abi,
       account: address,
@@ -369,6 +457,8 @@ const Home: NextPage = () => {
     else {
       setSelectedDeploy(null);
       setUser("select");
+      setUserMove("");
+      setWinner("");
     }
   };
 
@@ -378,8 +468,12 @@ const Home: NextPage = () => {
   const handleReveal = async () => {
     if (!selectedDeploy) return;
 
-    const move = localStorage.getItem("c1Move");
-    const saltHex = localStorage.getItem("salt:" + address);
+    const move = localStorage.getItem(
+      selectedDeploy.address + ":" + address + ":move:"
+    );
+    const saltHex = localStorage.getItem(
+      selectedDeploy.address + ":" + address + ":salt:"
+    );
     if (!move) return;
     if (!saltHex) return;
 
@@ -398,10 +492,8 @@ const Home: NextPage = () => {
       hash: hash,
     });
 
-    reset();
-    setUser("select");
-
     refReveal.current?.removeAttribute("disabled");
+    handleBack();
   };
 
   const handlePlay = async () => {
@@ -409,7 +501,10 @@ const Home: NextPage = () => {
       alert("No option Selected");
       return;
     }
-
+    localStorage.setItem(
+      selectedDeploy?.address + ":" + address + ":move:",
+      radio.toString()
+    );
     refPlay.current?.setAttribute("disabled", "");
     const { hash } = await writePlay({
       args: [radio],
@@ -426,8 +521,9 @@ const Home: NextPage = () => {
     //  value:
     //
     //})
-    setUser("select");
+
     refPlay.current?.removeAttribute("disabled");
+    handleBack();
   };
 
   const handleTimeout = async () => {
@@ -446,10 +542,7 @@ const Home: NextPage = () => {
     const receipt = await publicClient.waitForTransactionReceipt({
       hash: txHash,
     });
-
-    reset();
-    setUser("select");
-
+    fetchContractTx();
     refTimeout.current?.removeAttribute("disabled");
   };
 
@@ -461,7 +554,6 @@ const Home: NextPage = () => {
           className="border-2 bg-blue-400 rounded-[10px] mx-3 w-[150px] mr-4"
           onClick={() => {
             setUser("select");
-            reset();
           }}
         >
           Flush Storage
@@ -528,7 +620,33 @@ const Home: NextPage = () => {
               <div>
                 {selectedDeploy?.address && dataReads ? ( //If a selectedDeploy.address is selected and its data has been fetched i
                   <>
-                    {timer ? winner!==""?winner==="tie"?(<div>Its a Tie</div>):winner==address?.toLowerCase()?(<div>You Got the Funds</div>):(<div>{winner +" "}Received the Funds</div>):( // Whether the timer has expired
+                    {userMove !== "0" && <div>Your move: {userMove}</div>}
+                    {Number(dataReads[1].result) !== 0 && (
+                      <div>
+                        Enemy move: {Number(dataReads[1].result).toString()}
+                      </div>
+                    )}
+                    {
+                      winner !== "" ? <div></div> : <div></div>
+                      /**winner !== "" ? (
+                        winner === "tie" ? (
+                          <div>Its a Tie</div>
+                        ) : winner == address?.toLowerCase() ? (
+                          <div>You Got the Funds</div>
+                        ) : (
+                          <div>{winner + " "}Received the Funds</div>
+                        ) // Whether the timer has expired
+                      )  */
+                    }
+                    {winner !== "" ? (
+                      winner === "tie" ? (
+                        <div>Its a Tie</div>
+                      ) : winner == address?.toLowerCase() ? (
+                        <div>You are the winner!</div>
+                      ) : (
+                        <div>Your lost</div>
+                      )
+                    ) : timer ? (
                       <>
                         <div className="flex flex-col items-center text-[30px] text-blue-600">
                           Turn has expired for the{" "}
