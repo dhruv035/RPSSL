@@ -207,14 +207,20 @@ const Home: NextPage = () => {
     }
   }, [dataReads]);
 
+  console.log("HHERE")
   useEffect(() => {
-    const intervalId = setInterval(() => setDiff(diff + 1), 1000);
+    if(!dataReads)return;
+    let intervalId:any;
 
     if (diff > 60 * 5 && dataReads) {
       if (dataReads[1] && Number(dataReads[1].result) === 0)
         setIsCreator(false);
       else setIsCreator(true);
       setTimer(true);
+      return;
+    }
+    else{
+      intervalId = setInterval(() => setDiff(diff + 1), 1000);
     }
     return () => {
       clearInterval(intervalId);
