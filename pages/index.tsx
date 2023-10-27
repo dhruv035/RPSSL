@@ -621,7 +621,7 @@ const Home: NextPage = () => {
                 {selectedDeploy?.address && dataReads ? ( //If a selectedDeploy.address is selected and its data has been fetched i
                   <>
                     {userMove !== "0" && <div>Your move: {userMove}</div>}
-                    {Number(dataReads[1].result) !== 0 && (
+                    {Number(dataReads[1].result) !== 0 && address==selectedDeploy.j1&&(
                       <div>
                         Enemy move: {Number(dataReads[1].result).toString()}
                       </div>
