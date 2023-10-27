@@ -422,7 +422,7 @@ const Home: NextPage = () => {
       <div className="flex w-3/4 h-max mt-40 self-center justify-center">
         <div className="flex w-3/4 justify-center self-center r">
           <div>
-          <button ref={refBack} className="outline-2 rounded-[10px] bg-blue-300 w-[100px] ml-4 disabled:bg-gray-300"  onClick={handleBack}>
+          <button ref={refBack} className="outline-2 rounded-[10px] bg-blue-300 w-[100px] ml-4 disabled:bg-gray-300" disabled  onClick={handleBack}>
           Go Back
           </button>
             <br></br>
@@ -450,7 +450,7 @@ const Home: NextPage = () => {
                             onClick={() => {
                               setSelectedDeploy(deployement);
                               setUser("init");
-                              refBack.current?.setAttribute("disabled","")
+                              refBack.current?.removeAttribute("disabled")
                             }}
                           >
                             Select
