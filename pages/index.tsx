@@ -1,6 +1,6 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { NextPage } from "next";
-import { reset } from "./frontend-services/localServices";
+import { reset } from "../frontend-services/localServices";
 import dynamic from "next/dynamic";
 const web3 = require("web3");
 import Head from "next/head";
@@ -28,7 +28,7 @@ import {
   addDeployement,
   getDeployements,
   removeDeployement,
-} from "./frontend-services/mongoServices";
+} from "../frontend-services/mongoServices";
 
 export type Deployement = {
   creator: string;

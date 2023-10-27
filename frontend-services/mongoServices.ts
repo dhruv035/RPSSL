@@ -1,5 +1,5 @@
 
-import { Deployement } from "..";
+import { Deployement } from "../pages";
 
 export const getDeployements=async ()=>{
     const result = await fetch("/api",{
