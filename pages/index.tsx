@@ -310,7 +310,7 @@ const Home: NextPage = () => {
     setUser("select");
     await loadDeployements();
     setRadio(0);
-    refDeploy.current?.setAttribute("disabled", "false");
+    refDeploy.current?.removeAttribute("disabled");
   };
 
   const handleBack = () => {
@@ -353,7 +353,7 @@ const Home: NextPage = () => {
     reset();
     setUser("select");
 
-    refReveal.current?.setAttribute("disabled", "false");
+    refReveal.current?.removeAttribute("disabled");
   };
 
   const handlePlay = async () => {
@@ -379,7 +379,7 @@ const Home: NextPage = () => {
     //
     //})
     setUser("select");
-    refPlay.current?.setAttribute("disabled", "false");
+    refPlay.current?.removeAttribute("disabled");
   };
 
   const handleTimeout = async () => {
@@ -402,7 +402,7 @@ const Home: NextPage = () => {
     reset();
     setUser("select");
     loadDeployements();
-    refTimeout.current?.setAttribute("disabled", "false");
+    refTimeout.current?.removeAttribute("disabled");
   };
 
   return (
@@ -450,7 +450,7 @@ const Home: NextPage = () => {
                             onClick={() => {
                               setSelectedDeploy(deployement);
                               setUser("init");
-                              refBack.current?.setAttribute("disabled","false")
+                              refBack.current?.setAttribute("disabled","")
                             }}
                           >
                             Select
@@ -463,7 +463,7 @@ const Home: NextPage = () => {
                   className="border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[200px]"
                   onClick={() => {
                     console.log(refBack.current)
-                    refBack.current?.setAttribute("disabled","false")
+                    refBack.current?.removeAttribute("disabled")
                     setSelectedDeploy(null);
                     setUser("init");
                     
