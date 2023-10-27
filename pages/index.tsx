@@ -265,7 +265,7 @@ const Home: NextPage = () => {
       alert("Target and creator are same");
       return;
     }
-    refDeploy.current?.setAttribute("disabled", "true");
+    refDeploy.current?.setAttribute("disabled", "");
     if (client?.chain.id !== 5 || !address) {
       return;
     }
@@ -338,7 +338,7 @@ const Home: NextPage = () => {
 
     const salt = hexToBigInt(saltHex as `0x${string}`);
 
-    refReveal.current?.setAttribute("disabled", "true");
+    refReveal.current?.setAttribute("disabled", "");
 
     if (!saltHex) return;
 
@@ -365,7 +365,7 @@ const Home: NextPage = () => {
       return;
     }
 
-    refPlay.current?.setAttribute("disabled", "true");
+    refPlay.current?.setAttribute("disabled", "");
     const { hash } = await writePlay({
       args: [radio],
       value: parseEther(stake),
@@ -388,7 +388,7 @@ const Home: NextPage = () => {
   const handleTimeout = async () => {
     if (!selectedDeploy) return;
 
-    refTimeout.current?.setAttribute("disabled", "true");
+    refTimeout.current?.setAttribute("disabled", "");
     if (!dataReads) return;
     let txHash;
     if (isCreator) {
