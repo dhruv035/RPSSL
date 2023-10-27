@@ -222,8 +222,11 @@ const Home: NextPage = () => {
   }, [diff]);
 
   useEffect(() => {
-    loadDeployements();
-  }, []);
+    if (user === "select") {
+      loadDeployements();
+      refBack.current?.setAttribute("disabled", "");
+    }
+  }, [user]);
 
   //Functions
   const loadDeployements = async () => {
@@ -308,17 +311,17 @@ const Home: NextPage = () => {
     };
     const updation = await addDeployement(newDeployement);
     setUser("select");
-    await loadDeployements();
+
     setRadio(0);
     refDeploy.current?.removeAttribute("disabled");
   };
 
   const handleBack = () => {
-    if (user !== "init" &&user!=="select") setUser("init");
+    console.log("HERE", user);
+    if (user !== "init" && user !== "select") setUser("init");
     else {
       setSelectedDeploy(null);
       setUser("select");
-      
     }
   };
 
@@ -349,7 +352,7 @@ const Home: NextPage = () => {
     });
 
     await removeDeployement(selectedDeploy);
-    loadDeployements();
+
     reset();
     setUser("select");
 
@@ -401,7 +404,7 @@ const Home: NextPage = () => {
     await removeDeployement(selectedDeploy);
     reset();
     setUser("select");
-    loadDeployements();
+
     refTimeout.current?.removeAttribute("disabled");
   };
 
@@ -422,9 +425,13 @@ const Home: NextPage = () => {
       <div className="flex w-3/4 h-max mt-40 self-center justify-center">
         <div className="flex w-3/4 justify-center self-center r">
           <div>
-          <button ref={refBack} className="outline-2 rounded-[10px] bg-blue-300 w-[100px] ml-4 disabled:bg-gray-300" disabled  onClick={handleBack}>
-          Go Back
-          </button>
+            <button
+              ref={refBack}
+              className="outline-2 rounded-[10px] bg-blue-300 w-[100px] ml-4 disabled:bg-gray-300"
+              onClick={() => handleBack()}
+            >
+              Go Back
+            </button>
             <br></br>
             <br></br>
             <br></br>
@@ -450,7 +457,7 @@ const Home: NextPage = () => {
                             onClick={() => {
                               setSelectedDeploy(deployement);
                               setUser("init");
-                              refBack.current?.removeAttribute("disabled")
+                              refBack.current?.removeAttribute("disabled");
                             }}
                           >
                             Select
@@ -462,11 +469,10 @@ const Home: NextPage = () => {
                 <button
                   className="border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[200px]"
                   onClick={() => {
-                    console.log(refBack.current)
-                    refBack.current?.removeAttribute("disabled")
+                    console.log(refBack.current);
+                    refBack.current?.removeAttribute("disabled");
                     setSelectedDeploy(null);
                     setUser("init");
-                    
                   }}
                 >
                   Start New Game
