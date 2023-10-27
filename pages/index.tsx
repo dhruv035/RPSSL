@@ -296,14 +296,11 @@ const Home: NextPage = () => {
     if (!hash) return;
     setTimeout(() => {}, 3000);
 
-    try {
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash: hash,
-        confirmations: 1,
-      });
-    } catch (error) {
-      //Doesnt matter, the address will still get logged
-    }
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: hash,
+      confirmations: 1,
+    });
+
     const newDeployement: Deployement = {
       creator: address,
       address: deployAddress,
@@ -340,14 +337,12 @@ const Home: NextPage = () => {
     const { hash } = await writeReveal({
       args: [parseInt(move), salt],
     });
-    try {
-      const receipt = await publicClient.waitForTransactionReceipt({
-        confirmations: 1,
-        hash: hash,
-      });
-    } catch (err) {
-      //still works
-    }
+
+    const receipt = await publicClient.waitForTransactionReceipt({
+      confirmations: 1,
+      hash: hash,
+    });
+
     await removeDeployement(selectedDeploy);
     loadDeployements();
     reset();
@@ -368,14 +363,10 @@ const Home: NextPage = () => {
       value: parseEther(stake),
     });
 
-    try {
-      await publicClient.waitForTransactionReceipt({
-        confirmations: 1,
-        hash: hash,
-      });
-    } catch (err) {
-      //still works
-    }
+    await publicClient.waitForTransactionReceipt({
+      confirmations: 1,
+      hash: hash,
+    });
 
     //const {data, isLoading,isError,isSuccess} = useContractWrite({
     //  address:selectedDeploy?.address,
@@ -430,9 +421,13 @@ const Home: NextPage = () => {
             <br></br>
             <br></br>
             {!client ? (
-              <div className="text-[40px] text-red-400">Please Connect Your Wallet</div>
+              <div className="text-[40px] text-red-400">
+                Please Connect Your Wallet
+              </div>
             ) : client.chain?.id !== 5 ? (
-              <div className="text-[40px] text-red-400">Please Select The Correct Chain</div>
+              <div className="text-[40px] text-red-400">
+                Please Select The Correct Chain
+              </div>
             ) : user === "select" && client?.chain?.id === 5 ? (
               <div>
                 {deployements &&
