@@ -18,6 +18,9 @@
     "wagmi": "~1.4.3",
     "web3": "^4.2.0"
   },
+  "browser":{
+    "child_process": false
+    },
   "devDependencies": {
     "@types/node": "^18.16.12",
     "@types/react": "^18.2.21",
