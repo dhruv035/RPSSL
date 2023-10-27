@@ -545,12 +545,12 @@ const Home: NextPage = () => {
                           </>
                         ) : (
                           user === "reveal" && (
-                            <div>
+                            <div className="flex flex-col">
                               Reveal Choice
                               <button
                                 ref={refReveal}
                                 onClick={handleReveal}
-                                className="border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[100px]"
+                                className="mt-2 border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[100px]"
                               >
                                 Reveal
                               </button>
