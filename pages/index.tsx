@@ -7,9 +7,7 @@ import { ChangeEvent, useEffect, useState, useRef } from "react";
 import {
   useAccount,
   useBalance,
-  readContracts,
   useContractRead,
-  useContractReads,
   useContractWrite,
   usePublicClient,
   useWalletClient,
@@ -24,82 +22,58 @@ import {
   formatEther,
   isAddress,
   isAddressEqual,
-  Address,
 } from "viem";
 import contractabi from "../contractabi.json";
 import {
   addDeployement,
   getDeployements,
-  removeDeployement,
 } from "../frontend-services/mongoServices";
 
-import {
-  Alchemy,
-  AssetTransfersCategory,
-  Network,
-  AssetTransfersResult,
-} from "alchemy-sdk";
-import { element } from "@rainbow-me/rainbowkit/dist/css/reset.css";
+import { Alchemy, AssetTransfersCategory, Network } from "alchemy-sdk";
+import { commitValidation } from "../frontend-services/validationServices";
 
 export type Deployement = {
   address: string;
   j1: string;
   j2?: string;
 };
-const Home: NextPage = () => {
-  //states
 
+const Home: NextPage = () => {
+  //Wagi Hook States
+
+  //UI States
+  const [pendingTx, setPendingTx] = useState<`0x${string}` | undefined>();
   const [isBack, setIsBack] = useState(false);
-  const [isCreator, setIsCreator] = useState<boolean>(false);
-  const [diff, setDiff] = useState<number>(0);
-  const publicClient = usePublicClient({ chainId: 5 });
-  const [timer, setTimer] = useState<boolean>(false);
-  const { address } = useAccount();
-  const { data: balance } = useBalance({
-    address: address,
-  });
   const [isDisabled, setIsDisabled] = useState<boolean>(false);
-  const { data: client } = useWalletClient();
+  const [deployements, setDeployements] = useState<Deployement[] | null>(null);
+
+  //Form states
   const [target, setTarget] = useState<string | null>(null);
   const [radio, setRadio] = useState<number>(0);
+
+  //Selected Contract states
+  const [timer, setTimer] = useState<boolean>(false);
+  const [diff, setDiff] = useState<number>(0);
+  const [isCreator, setIsCreator] = useState<boolean>(false);
   const [user, setUser] = useState<string>("select");
   const [userMove, setUserMove] = useState<string>("");
   const [selectedDeploy, setSelectedDeploy] = useState<Deployement | null>(
     null
   );
-
-  const [pendingTx, setPendingTx] = useState<`0x${string}` | undefined>();
   const [stake, setStake] = useState<string>("");
   const [winner, setWinner] = useState<string>("");
-  const [deployements, setDeployements] = useState<Array<Deployement> | null>(
-    null
-  );
-  const moveKey =
-    selectedDeploy?.address.toLowerCase() +
-    ":" +
-    address?.toLowerCase() +
-    ":move:";
-  const saltHexKey =
-    selectedDeploy?.address.toLowerCase() +
-    ":" +
-    address?.toLowerCase() +
-    ":salt:";
 
-  const config = {
-    apiKey: process.env.NEXT_PUBLIC_ALCHEMY_KEY,
-    network: Network.ETH_GOERLI,
-  };
-  const alchemy = new Alchemy(config);
+  //Wagmi Hooks
 
-  //references for buttons
-  const refTimeout = useRef<HTMLButtonElement>(null);
-  const refReveal = useRef<HTMLButtonElement>(null);
-  const refPlay = useRef<HTMLButtonElement>(null);
-  const refDeploy = useRef<HTMLButtonElement>(null);
-  const refBack = useRef<HTMLButtonElement>(null);
+  //State Initialise Hooks
+  const publicClient = usePublicClient({ chainId: 5 });
+  const { data: client } = useWalletClient();
+  const { address } = useAccount();
+  const { data: balance } = useBalance({
+    address: address,
+  });
 
-  //contract read hooks
-
+  //Pending transaction watcher
   const { data: txData, error: pendingError } = useWaitForTransaction({
     hash: pendingTx,
     onReplaced: async (data) => {
@@ -126,6 +100,9 @@ const Home: NextPage = () => {
       localStorage.setItem("pendingTx", "");
     },
   });
+
+  //Contract Read Hooks
+
   const { data: j1 } = useContractRead({
     address: selectedDeploy?.address as `0x${string}`,
     abi: contractabi.abi,
@@ -138,7 +115,6 @@ const Home: NextPage = () => {
     functionName: "j2",
   });
 
-  //last Action timestamp
   const { data: lastAction } = useContractRead({
     watch: true,
     address: selectedDeploy?.address as `0x${string}`,
@@ -153,7 +129,6 @@ const Home: NextPage = () => {
     functionName: "c2",
   });
 
-  //Amount staked in the game
   const { data: stakedAmount } = useContractRead({
     watch: true,
     address: selectedDeploy?.address as `0x${string}`,
@@ -161,7 +136,7 @@ const Home: NextPage = () => {
     functionName: "stake",
   });
 
-  //contract write hooks
+  //Contract Write Hooks
   const { writeAsync: writePlay } = useContractWrite({
     abi: contractabi.abi,
     address: selectedDeploy?.address as `0x${string}`,
@@ -185,26 +160,42 @@ const Home: NextPage = () => {
     functionName: "j2Timeout",
   });
 
-  //sideEffects
+  //Constants
+  const moveKey =
+    selectedDeploy?.address.toLowerCase() +
+    ":" +
+    address?.toLowerCase() +
+    ":move:";
+  const saltHexKey =
+    selectedDeploy?.address.toLowerCase() +
+    ":" +
+    address?.toLowerCase() +
+    ":salt:";
 
-  useEffect(()=>{
-    if(pendingTx){
-      
-      setIsDisabled(true)
-    }
-    else{
+  const config = {
+    apiKey: process.env.NEXT_PUBLIC_ALCHEMY_KEY,
+    network: Network.ETH_GOERLI,
+  };
+  const alchemy = new Alchemy(config);
+
+  //Side Effects
+
+  useEffect(() => {
+    if (pendingTx) {
+      setIsDisabled(true);
+    } else {
       const abc = localStorage.getItem("pendingTx");
       if (abc && abc !== "") {
         setPendingTx(abc as `0x${string}`);
       }
-      setIsDisabled(false)
+      setIsDisabled(false);
     }
-  },[pendingTx])
+  }, [pendingTx]);
 
   useEffect(() => {
     let intervalId: any;
     if (!selectedDeploy) return;
-    if (diff > 60 * 5) {
+    if (diff > 60 * 5 + 2) {
       console.log("lastAction", c2);
       if (Number(c2) === 0) setIsCreator(false);
       else setIsCreator(true);
@@ -221,7 +212,9 @@ const Home: NextPage = () => {
   useEffect(() => {
     if (user === "select") {
       loadDeployements();
-      refBack.current?.setAttribute("disabled", "");
+      setIsBack(false);
+    } else {
+      setIsBack(true);
     }
   }, [user]);
 
@@ -239,6 +232,7 @@ const Home: NextPage = () => {
 
   useEffect(() => {
     if (typeof stakedAmount === "bigint") setStake(formatEther(stakedAmount));
+    if (selectedDeploy) fetchContractTx(selectedDeploy);
   }, [stakedAmount]);
 
   useEffect(() => {
@@ -252,11 +246,15 @@ const Home: NextPage = () => {
     loadMove();
   }, [lastAction]);
 
-  useEffect(() => {
-    if (selectedDeploy) fetchContractTx(selectedDeploy);
-  }, [stakedAmount]);
-
   //Functions
+
+  //UI-Workers
+  const handleBack = () => {
+    resetGameStates();
+    setSelectedDeploy(null);
+    setUser("select");
+    setIsCreator(false);
+  };
 
   const loadMove = () => {
     if (selectedDeploy) {
@@ -266,6 +264,20 @@ const Home: NextPage = () => {
       if (move?.length) setUserMove(move);
     }
   };
+
+  //Form update Handlers
+
+  const handleStake = async (e: ChangeEvent<HTMLInputElement>) => {
+    setStake(e.target.value.toString());
+  };
+
+  const handleSelection = async (deployement: Deployement) => {
+    await fetchContractTx(deployement);
+    setSelectedDeploy(deployement);
+    setUser("init");
+    setIsBack(true);
+  };
+
   const resetGameStates = () => {
     setWinner("");
     setUserMove("");
@@ -273,32 +285,7 @@ const Home: NextPage = () => {
     setTimer(false);
   };
 
-  const fetchContractTx = async (deployement: Deployement) => {
-    const data = await alchemy.core.getAssetTransfers({
-      fromBlock: "0x0",
-      fromAddress: deployement.address,
-      category: [
-        "external",
-        "internal",
-        "erc20",
-        "erc721",
-        "erc1155",
-      ] as Array<AssetTransfersCategory>,
-    });
-    console.log("ABC", data);
-    if (data.transfers.length) {
-      if (data.transfers.length === 2) {
-        setWinner("tie");
-      } else data.transfers[0].to && setWinner(data.transfers[0].to);
-    }
-  };
-
-  const handleSelection = async (deployement: Deployement) => {
-    await fetchContractTx(deployement);
-    setSelectedDeploy(deployement);
-    setUser("init");
-    refBack.current?.removeAttribute("disabled");
-  };
+  //Data Fetching Functions
 
   const loadDeployements = async () => {
     const result = await getDeployements();
@@ -327,41 +314,43 @@ const Home: NextPage = () => {
     setDeployements(filteredData);
   };
 
+  const fetchContractTx = async (deployement: Deployement) => {
+    const data = await alchemy.core.getAssetTransfers({
+      fromBlock: "0x0",
+      fromAddress: deployement.address,
+      category: [
+        "external",
+        "internal",
+        "erc20",
+        "erc721",
+        "erc1155",
+      ] as Array<AssetTransfersCategory>,
+    });
+    if (data.transfers.length) {
+      if (data.transfers.length === 2) {
+        setWinner("tie");
+      } else data.transfers[0].to && setWinner(data.transfers[0].to);
+    }
+  };
+
+  //Transaction submit Button Handlers
   const handleCommit = async () => {
-    if (!radio) {
-      alert("Please select a move");
-      return;
-    }
     if (!balance) {
-      alert("Your wallet doesnt have any ether");
+      alert("Cannot Fetch your balance");
       return;
     }
-    if (!stake || stake === "0") {
-      alert("Please Enter a stake amount");
-      return;
-    }
-    if (parseFloat(formatEther(balance.value)) < parseFloat(stake)) {
-      alert("Your stake amount is higher than your balance");
-      return;
-    }
-
-    if (!target) {
-      alert("Please enter a target player to invite");
-      return;
-    }
-
-    if (!isAddress(target)) {
-      alert("Target is not a valid ethereum address");
-      return;
-    }
-    if (isAddressEqual(target as `0x${string}`, address as `0x${string}`)) {
-      alert("Target and creator are same");
-      return;
-    }
-    refDeploy.current?.setAttribute("disabled", "");
     if (client?.chain.id !== 5 || !address) {
       return;
     }
+    const isValidated = commitValidation(
+      radio,
+      balance.value,
+      stake,
+      target,
+      address as string
+    );
+    if (!isValidated) return;
+
     const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
     const signature = await client?.signMessage({ message: nonce });
     if (!signature) return;
@@ -381,7 +370,6 @@ const Home: NextPage = () => {
       nonce: BigInt(txNonce),
     });
 
-    
     localStorage.setItem(
       deployAddress.toLowerCase() + ":" + address.toLowerCase() + ":move:",
       radio.toString()
@@ -390,52 +378,42 @@ const Home: NextPage = () => {
       deployAddress.toLowerCase() + ":" + address.toLowerCase() + ":salt:",
       saltHex
     );
-
-    const hash = await client?.deployContract({
-      abi: contractabi.abi,
-      account: address,
-      args: [c1Hash, target as `0x${string}`],
-      value: parseEther(stake),
-      bytecode: contractabi.bytecode as `0x${string}`,
-    });
+    let hash;
+    try {
+      const txHash = await client?.deployContract({
+        abi: contractabi.abi,
+        account: address,
+        args: [c1Hash, target as `0x${string}`],
+        value: parseEther(stake),
+        bytecode: contractabi.bytecode as `0x${string}`,
+      });
+      hash = txHash;
+    } catch (error) {
+      return;
+    }
 
     if (!hash) return;
 
     setPendingTx(hash);
   };
 
-  const handleBack = () => {
-    console.log("HERE", user);
-    resetGameStates();
-    setSelectedDeploy(null);
-    setUser("select");
-    setIsCreator(false);
-  };
-
-  const handleStake = async (e: ChangeEvent<HTMLInputElement>) => {
-    setStake(e.target.value.toString());
-  };
   const handleReveal = async () => {
     if (!selectedDeploy) return;
-
-    console.log(" REVEAL KEYS", moveKey, saltHexKey);
     const move = localStorage.getItem(moveKey);
     const saltHex = localStorage.getItem(saltHexKey);
-    console.log(
-      "HEREALSO",
-      localStorage.getItem(
-        "0x4D02c02c026E2f7Ef06342527EbfD97E62750C43:0x1b3A00A796940C2a23a05c867b88bb5832c19435:move: "
-      )
-    );
-    console.log("MOVE", saltHex, move);
     if (!move) return;
     if (!saltHex) return;
 
     const salt = hexToBigInt(saltHex as `0x${string}`);
-
-    const { hash } = await writeReveal({
-      args: [parseInt(move), salt],
-    });
+    let hash;
+    try {
+      const { hash: txHash } = await writeReveal({
+        args: [parseInt(move), salt],
+      });
+      hash = txHash;
+    } catch (error) {
+      return;
+    }
 
     setPendingTx(hash);
     localStorage.setItem("pendingTx", hash as string);
@@ -446,29 +424,41 @@ const Home: NextPage = () => {
       alert("No option Selected");
       return;
     }
-    console.log("PLAY KEYS", moveKey, saltHexKey);
     localStorage.setItem(moveKey, radio.toString());
-    refPlay.current?.setAttribute("disabled", "");
-    const { hash } = await writePlay({
-      args: [radio],
-      value: parseEther(stake),
-    });
+    let hash;
+    try {
+      const { hash: txHash } = await writePlay({
+        args: [radio],
+        value: parseEther(stake),
+      });
+      hash = txHash;
+    } catch (error) {
+      return;
+    }
 
     setPendingTx(hash);
     localStorage.setItem("pendingTx", hash as string);
   };
+  
   const handleTimeout = async () => {
     if (!selectedDeploy) return;
 
-    refTimeout.current?.setAttribute("disabled", "");
     let txHash;
 
     if (isCreator) {
-      const { hash } = await writej1Timeout();
-      txHash = hash;
+      try {
+        const { hash } = await writej1Timeout();
+        txHash = hash;
+      } catch (error) {
+        return;
+      }
     } else {
-      const { hash } = await writej2Timeout();
-      txHash = hash;
+      try {
+        const { hash } = await writej2Timeout();
+        txHash = hash;
+      } catch (error) {
+        return;
+      }
     }
     setPendingTx(txHash);
     localStorage.setItem("pendingTx", txHash as string);
@@ -491,7 +481,7 @@ const Home: NextPage = () => {
         <div className="flex w-3/4 justify-center self-center r">
           <div>
             <button
-              ref={refBack}
+              disabled={!isBack}
               className="outline-2 rounded-[10px] bg-blue-300 w-[100px] ml-4 disabled:bg-gray-300"
               onClick={() => handleBack()}
             >
@@ -532,8 +522,6 @@ const Home: NextPage = () => {
                 <button
                   className="border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[200px]"
                   onClick={() => {
-                    console.log(refBack.current);
-                    refBack.current?.removeAttribute("disabled");
                     setSelectedDeploy(null);
                     setUser("init");
                   }}
@@ -599,7 +587,11 @@ const Home: NextPage = () => {
                                 <button
                                   className="border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[100px]"
                                   onClick={handlePlay}
-                                  disabled={(address !== j2 || Number(c2) !== 0)||isDisabled}
+                                  disabled={
+                                    address !== j2 ||
+                                    Number(c2) !== 0 ||
+                                    isDisabled
+                                  }
                                 >
                                   Play
                                 </button>
@@ -608,7 +600,11 @@ const Home: NextPage = () => {
                             {address === j1 && (
                               <button
                                 onClick={handleReveal}
-                                disabled={address !== j1 || Number(c2) === 0||isDisabled}
+                                disabled={
+                                  address !== j1 ||
+                                  Number(c2) === 0 ||
+                                  isDisabled
+                                }
                                 className="border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[100px]"
                               >
                                 Reveal
