@@ -13,6 +13,7 @@ import {
   useContractWrite,
   usePublicClient,
   useWalletClient,
+  useWaitForTransaction,
 } from "wagmi";
 import { readContract } from "@wagmi/core";
 import {
@@ -43,7 +44,7 @@ import { element } from "@rainbow-me/rainbowkit/dist/css/reset.css";
 export type Deployement = {
   address: string;
   j1: string;
-  j2: string;
+  j2?: string;
 };
 const Home: NextPage = () => {
   //states
@@ -57,6 +58,7 @@ const Home: NextPage = () => {
   const { data: balance } = useBalance({
     address: address,
   });
+  const [isDisabled, setIsDisabled] = useState<boolean>(false);
   const { data: client } = useWalletClient();
   const [target, setTarget] = useState<string | null>(null);
   const [radio, setRadio] = useState<number>(0);
@@ -65,12 +67,23 @@ const Home: NextPage = () => {
   const [selectedDeploy, setSelectedDeploy] = useState<Deployement | null>(
     null
   );
+
+  const [pendingTx, setPendingTx] = useState<`0x${string}` | undefined>();
   const [stake, setStake] = useState<string>("");
   const [winner, setWinner] = useState<string>("");
   const [deployements, setDeployements] = useState<Array<Deployement> | null>(
     null
   );
-  console.log("HEH", winner);
+  const moveKey =
+    selectedDeploy?.address.toLowerCase() +
+    ":" +
+    address?.toLowerCase() +
+    ":move:";
+  const saltHexKey =
+    selectedDeploy?.address.toLowerCase() +
+    ":" +
+    address?.toLowerCase() +
+    ":salt:";
 
   const config = {
     apiKey: process.env.NEXT_PUBLIC_ALCHEMY_KEY,
@@ -85,8 +98,35 @@ const Home: NextPage = () => {
   const refDeploy = useRef<HTMLButtonElement>(null);
   const refBack = useRef<HTMLButtonElement>(null);
 
-  //contract read hooks and their respective sideEffect
+  //contract read hooks
 
+  const { data: txData, error: pendingError } = useWaitForTransaction({
+    hash: pendingTx,
+    onReplaced: async (data) => {
+      console.log("REPLACED", data);
+    },
+    onSuccess: async (data) => {
+      console.log("SUCCESS", data);
+      if (data.to === null) {
+        if (!data.from || !data.contractAddress) return;
+        const newDeployement: Deployement = {
+          address: data.contractAddress as string,
+          j1: data.from as string,
+        };
+        const updation = await addDeployement(newDeployement);
+        setSelectedDeploy(newDeployement);
+      }
+      setIsDisabled(false);
+      setPendingTx(undefined);
+      localStorage.setItem("pendingTx", "");
+    },
+    onError: (data) => {
+      console.log("Error", data);
+      setIsDisabled(false);
+      setPendingTx(undefined);
+      localStorage.setItem("pendingTx", "");
+    },
+  });
   const { data: j1 } = useContractRead({
     address: selectedDeploy?.address as `0x${string}`,
     abi: contractabi.abi,
@@ -107,16 +147,6 @@ const Home: NextPage = () => {
     functionName: "lastAction",
   });
 
-  console.log("EBER", lastAction);
-  useEffect(() => {
-    const difference = Math.floor(Date.now() / 1000) - Number(lastAction);
-    setDiff(difference);
-
-    console.log("HEY LAST ACTION CHECK ", lastAction);
-
-    if (selectedDeploy) fetchContractTx(selectedDeploy);
-  }, [lastAction]);
-
   const { data: c2 } = useContractRead({
     watch: true,
     address: selectedDeploy?.address as `0x${string}`,
@@ -126,14 +156,11 @@ const Home: NextPage = () => {
 
   //Amount staked in the game
   const { data: stakedAmount } = useContractRead({
+    watch: true,
     address: selectedDeploy?.address as `0x${string}`,
     abi: contractabi.abi,
     functionName: "stake",
   });
-  useEffect(() => {
-    if (typeof stakedAmount === "bigint") setStake(formatEther(stakedAmount));
-  }, [stakedAmount]);
-
 
   //contract write hooks
   const { writeAsync: writePlay } = useContractWrite({
@@ -158,7 +185,16 @@ const Home: NextPage = () => {
     address: selectedDeploy?.address as `0x${string}`,
     functionName: "j2Timeout",
   });
+
   //sideEffects
+
+  useEffect(() => {
+    const abc = localStorage.getItem("pendingTx");
+    if (abc && abc !== "") {
+      setPendingTx(abc as `0x${string}`);
+    }
+  });
+
   useEffect(() => {
     let intervalId: any;
     if (!selectedDeploy) return;
@@ -197,17 +233,34 @@ const Home: NextPage = () => {
   }, [selectedDeploy]);
 
   useEffect(() => {
+    if (typeof stakedAmount === "bigint") setStake(formatEther(stakedAmount));
+  }, [stakedAmount]);
+
+  useEffect(() => {
     loadDeployements();
+    loadMove();
+  }, [address]);
+
+  useEffect(() => {
+    const difference = Math.floor(Date.now() / 1000) - Number(lastAction);
+    setDiff(difference);
+    loadMove();
+  }, [lastAction]);
+
+  useEffect(() => {
+    if (selectedDeploy) fetchContractTx(selectedDeploy);
+  }, [stakedAmount]);
+
+  //Functions
+
+  const loadMove = () => {
     if (selectedDeploy) {
       const move = localStorage.getItem(
         selectedDeploy.address + ":" + address + ":move:"
       );
       if (move?.length) setUserMove(move);
     }
-  }, [address]);
-
-  //Functions
-
+  };
   const resetGameStates = () => {
     setWinner("");
     setUserMove("");
@@ -227,12 +280,6 @@ const Home: NextPage = () => {
         "erc1155",
       ] as Array<AssetTransfersCategory>,
     });
-    const dataTo = await alchemy.core.getAssetTransfers({
-      fromBlock: "0x0",
-      toAddress: deployement.address,
-      category: ["internal"] as Array<AssetTransfersCategory>,
-    });
-
     console.log("ABC", data);
     if (data.transfers.length) {
       if (data.transfers.length === 2) {
@@ -250,7 +297,6 @@ const Home: NextPage = () => {
 
   const loadDeployements = async () => {
     const result = await getDeployements();
-    console.log("HERE", result);
     const data = await Promise.all(
       result.data.map((data: Deployement) => {
         return new Promise(async (resolve, reject) => {
@@ -270,11 +316,9 @@ const Home: NextPage = () => {
         });
       })
     );
-    console.log("Unfiltered", data);
     const filteredData = data.filter((element) => {
       return element.j1 == address || element.j2 == address;
     });
-    console.log("FilteredData", filteredData);
     setDeployements(filteredData);
   };
 
@@ -326,17 +370,14 @@ const Home: NextPage = () => {
     const txNonce = await publicClient.getTransactionCount({
       address: address,
     });
-    const bigNonce = BigInt(txNonce);
-    const deployAddress = await getContractAddress({
-      from: address,
-      nonce: bigNonce,
-    });
 
-    localStorage.setItem(
-      deployAddress + ":" + address + ":move:",
-      radio.toString()
-    );
-    localStorage.setItem(deployAddress + ":" + address + ":salt:", saltHex);
+    const deployAddress = getContractAddress({
+      from: address,
+      nonce: BigInt(txNonce),
+    });
+    localStorage.setItem(moveKey, radio.toString());
+    localStorage.setItem(saltHexKey, saltHex);
+
     const hash = await client?.deployContract({
       abi: contractabi.abi,
       account: address,
@@ -346,22 +387,8 @@ const Home: NextPage = () => {
     });
 
     if (!hash) return;
-    const receipt = await publicClient.waitForTransactionReceipt({
-      hash: hash,
-      confirmations: 1,
-    });
 
-    const newDeployement: Deployement = {
-      address: deployAddress,
-      j1: address,
-      j2: target,
-    };
-    const updation = await addDeployement(newDeployement);
-    await fetchContractTx(newDeployement);
-    setSelectedDeploy(newDeployement);
-    setRadio(0);
-    refDeploy.current?.removeAttribute("disabled");
-    setUser("init");
+    setPendingTx(hash);
   };
 
   const handleBack = () => {
@@ -378,63 +405,43 @@ const Home: NextPage = () => {
   const handleReveal = async () => {
     if (!selectedDeploy) return;
 
-    const move = localStorage.getItem(
-      selectedDeploy.address + ":" + address + ":move:"
+    const move = localStorage.getItem(moveKey);
+    const saltHex = localStorage.getItem(saltHexKey);
+    console.log(
+      "HEREALSO",
+      localStorage.getItem(
+        "0x4D02c02c026E2f7Ef06342527EbfD97E62750C43:0x1b3A00A796940C2a23a05c867b88bb5832c19435:move: "
+      )
     );
-    const saltHex = localStorage.getItem(
-      selectedDeploy.address + ":" + address + ":salt:"
-    );
+    console.log("MOVE", saltHex, move);
     if (!move) return;
     if (!saltHex) return;
 
     const salt = hexToBigInt(saltHex as `0x${string}`);
 
-    refReveal.current?.setAttribute("disabled", "");
-
-    if (!saltHex) return;
-
     const { hash } = await writeReveal({
       args: [parseInt(move), salt],
     });
 
-    const receipt = await publicClient.waitForTransactionReceipt({
-      confirmations: 1,
-      hash: hash,
-    });
-
-    refReveal.current?.removeAttribute("disabled");
+    setPendingTx(hash);
+    localStorage.setItem("pendingTx", hash as string);
   };
 
-  console.log("CHECK ME", j1, j2, typeof j1, typeof address);
   const handlePlay = async () => {
     if (radio === 0) {
       alert("No option Selected");
       return;
     }
-    localStorage.setItem(
-      selectedDeploy?.address + ":" + address + ":move:",
-      radio.toString()
-    );
+    localStorage.setItem(moveKey, radio.toString());
     refPlay.current?.setAttribute("disabled", "");
     const { hash } = await writePlay({
       args: [radio],
       value: parseEther(stake),
     });
 
-    await publicClient.waitForTransactionReceipt({
-      confirmations: 1,
-      hash: hash,
-    });
-
-    //const {data, isLoading,isError,isSuccess} = useContractWrite({
-    //  address:selectedDeploy?.address,
-    //  value:
-    //
-    //})
-
-    refPlay.current?.removeAttribute("disabled");
+    setPendingTx(hash);
+    localStorage.setItem("pendingTx", hash as string);
   };
-  console.log("HERERER", isCreator);
   const handleTimeout = async () => {
     if (!selectedDeploy) return;
 
@@ -448,11 +455,8 @@ const Home: NextPage = () => {
       const { hash } = await writej2Timeout();
       txHash = hash;
     }
-    const receipt = await publicClient.waitForTransactionReceipt({
-      hash: txHash,
-    });
-    refTimeout.current?.removeAttribute("disabled");
-    fetchContractTx(selectedDeploy);
+    setPendingTx(txHash);
+    localStorage.setItem("pendingTx", txHash as string);
   };
 
   return (
@@ -527,22 +531,16 @@ const Home: NextPage = () => {
               <div>
                 {selectedDeploy?.address ? ( //If a selectedDeploy.address is selected and its data has been fetched i
                   <>
+                    <div>
+                      Staked amount is{" "}
+                      {typeof stakedAmount === "bigint"
+                        ? formatEther(stakedAmount)
+                        : "0"}
+                    </div>
                     {userMove !== "0" && <div>Your move: {userMove}</div>}
                     {Number(c2) !== 0 && address == selectedDeploy.j1 && (
                       <div>Enemy move: {Number(c2).toString()}</div>
                     )}
-                    {
-                      winner !== "" ? <div></div> : <div></div>
-                      /**winner !== "" ? (
-                        winner === "tie" ? (
-                          <div>Its a Tie</div>
-                        ) : winner == address?.toLowerCase() ? (
-                          <div>You Got the Funds</div>
-                        ) : (
-                          <div>{winner + " "}Received the Funds</div>
-                        ) // Whether the timer has expired
-                      )  */
-                    }
                     {winner !== "" ? (
                       winner === "tie" ? (
                         <div>Its a Tie</div>
