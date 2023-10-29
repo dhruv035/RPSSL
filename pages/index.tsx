@@ -134,111 +134,6 @@ const Home: NextPage = () => {
     if (typeof stakedAmount === "bigint") setStake(formatEther(stakedAmount));
   }, [stakedAmount]);
 
-  const { data: dataReads, error: errorReads } = useContractReads({
-    watch: true,
-    contracts: [
-      {
-        address: selectedDeploy?.address as `0x${string}`,
-        abi: [
-          {
-            constant: true,
-            inputs: [],
-            name: "stake",
-            outputs: [
-              {
-                name: "",
-                type: "uint256",
-              },
-            ],
-            payable: false,
-            stateMutability: "view",
-            type: "function",
-          },
-        ],
-        functionName: "stake",
-      },
-      {
-        address: selectedDeploy?.address as `0x${string}`,
-        abi: [
-          {
-            constant: true,
-            inputs: [],
-            name: "j2",
-            outputs: [
-              {
-                name: "",
-                type: "address",
-              },
-            ],
-            payable: false,
-            stateMutability: "view",
-            type: "function",
-          },
-        ],
-        functionName: "j2",
-      },
-      {
-        address: selectedDeploy?.address as `0x${string}`,
-        abi: [
-          {
-            constant: true,
-            inputs: [],
-            name: "lastAction",
-            outputs: [
-              {
-                name: "",
-                type: "uint256",
-              },
-            ],
-            payable: false,
-            stateMutability: "view",
-            type: "function",
-          },
-        ],
-        functionName: "lastAction",
-      },
-      {
-        address: selectedDeploy?.address as `0x${string}`,
-        abi: [
-          {
-            constant: true,
-            inputs: [],
-            name: "j2",
-            outputs: [
-              {
-                name: "",
-                type: "address",
-              },
-            ],
-            payable: false,
-            stateMutability: "view",
-            type: "function",
-          },
-        ],
-        functionName: "j2",
-      },
-      {
-        address: selectedDeploy?.address as `0x${string}`,
-        abi: [
-          {
-            constant: true,
-            inputs: [],
-            name: "j2",
-            outputs: [
-              {
-                name: "",
-                type: "address",
-              },
-            ],
-            payable: false,
-            stateMutability: "view",
-            type: "function",
-          },
-        ],
-        functionName: "j1",
-      },
-    ],
-  });
 
   //contract write hooks
   const { writeAsync: writePlay } = useContractWrite({
@@ -263,8 +158,6 @@ const Home: NextPage = () => {
     address: selectedDeploy?.address as `0x${string}`,
     functionName: "j2Timeout",
   });
-
-  console.log("MOVE", userMove);
   //sideEffects
   useEffect(() => {
     let intervalId: any;
@@ -291,7 +184,6 @@ const Home: NextPage = () => {
     }
   }, [user]);
 
-  console.log("deployements", deployements);
   useEffect(() => {
     if (!selectedDeploy) {
       resetGameStates();
@@ -304,13 +196,6 @@ const Home: NextPage = () => {
     }
   }, [selectedDeploy]);
 
-  const resetGameStates = () => {
-    setWinner("");
-    setUserMove("");
-    setDiff(0);
-    setTimer(false);
-  };
-  //Functions
   useEffect(() => {
     loadDeployements();
     if (selectedDeploy) {
@@ -320,6 +205,15 @@ const Home: NextPage = () => {
       if (move?.length) setUserMove(move);
     }
   }, [address]);
+
+  //Functions
+
+  const resetGameStates = () => {
+    setWinner("");
+    setUserMove("");
+    setDiff(0);
+    setTimer(false);
+  };
 
   const fetchContractTx = async (deployement: Deployement) => {
     const data = await alchemy.core.getAssetTransfers({
@@ -336,9 +230,7 @@ const Home: NextPage = () => {
     const dataTo = await alchemy.core.getAssetTransfers({
       fromBlock: "0x0",
       toAddress: deployement.address,
-      category: [
-        "internal",
-      ] as Array<AssetTransfersCategory>,
+      category: ["internal"] as Array<AssetTransfersCategory>,
     });
 
     console.log("ABC", data);
@@ -477,7 +369,7 @@ const Home: NextPage = () => {
     resetGameStates();
     setSelectedDeploy(null);
     setUser("select");
-    setIsCreator(false)
+    setIsCreator(false);
   };
 
   const handleStake = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -547,7 +439,6 @@ const Home: NextPage = () => {
     if (!selectedDeploy) return;
 
     refTimeout.current?.setAttribute("disabled", "");
-    if (!dataReads) return;
     let txHash;
 
     if (isCreator) {
