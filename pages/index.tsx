@@ -116,7 +116,6 @@ const Home: NextPage = () => {
         const updation = await addDeployement(newDeployement);
         setSelectedDeploy(newDeployement);
       }
-      setIsDisabled(false);
       setPendingTx(undefined);
       localStorage.setItem("pendingTx", "");
     },
@@ -188,17 +187,23 @@ const Home: NextPage = () => {
 
   //sideEffects
 
-  useEffect(() => {
-    const abc = localStorage.getItem("pendingTx");
-    if (abc && abc !== "") {
-      setPendingTx(abc as `0x${string}`);
+  useEffect(()=>{
+    if(pendingTx){
+      
+      setIsDisabled(true)
     }
-  });
+    else{
+      const abc = localStorage.getItem("pendingTx");
+      if (abc && abc !== "") {
+        setPendingTx(abc as `0x${string}`);
+      }
+      setIsDisabled(false)
+    }
+  },[pendingTx])
 
   useEffect(() => {
     let intervalId: any;
     if (!selectedDeploy) return;
-    console.log("TRACKING DIFF", diff);
     if (diff > 60 * 5) {
       console.log("lastAction", c2);
       if (Number(c2) === 0) setIsCreator(false);
@@ -375,8 +380,16 @@ const Home: NextPage = () => {
       from: address,
       nonce: BigInt(txNonce),
     });
-    localStorage.setItem(moveKey, radio.toString());
-    localStorage.setItem(saltHexKey, saltHex);
+
+    
+    localStorage.setItem(
+      deployAddress.toLowerCase() + ":" + address.toLowerCase() + ":move:",
+      radio.toString()
+    );
+    localStorage.setItem(
+      deployAddress.toLowerCase() + ":" + address.toLowerCase() + ":salt:",
+      saltHex
+    );
 
     const hash = await client?.deployContract({
       abi: contractabi.abi,
@@ -405,6 +418,7 @@ const Home: NextPage = () => {
   const handleReveal = async () => {
     if (!selectedDeploy) return;
 
+    console.log(" REVEAL KEYS", moveKey, saltHexKey);
     const move = localStorage.getItem(moveKey);
     const saltHex = localStorage.getItem(saltHexKey);
     console.log(
@@ -432,6 +446,7 @@ const Home: NextPage = () => {
       alert("No option Selected");
       return;
     }
+    console.log("PLAY KEYS", moveKey, saltHexKey);
     localStorage.setItem(moveKey, radio.toString());
     refPlay.current?.setAttribute("disabled", "");
     const { hash } = await writePlay({
@@ -558,7 +573,7 @@ const Home: NextPage = () => {
                           {!isCreator ? "Player." : "Creator."} Please call the
                           timeout function
                           <button
-                            ref={refTimeout}
+                            disabled={isDisabled}
                             className="mt-4 text-black border-2 rounded-[10px] bg-blue-700 w-[200px] disabled:bg-gray-300"
                             onClick={() => {
                               handleTimeout();
@@ -583,9 +598,8 @@ const Home: NextPage = () => {
                                 )}
                                 <button
                                   className="border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[100px]"
-                                  ref={refPlay}
                                   onClick={handlePlay}
-                                  disabled={address !== j2 || Number(c2) !== 0}
+                                  disabled={(address !== j2 || Number(c2) !== 0)||isDisabled}
                                 >
                                   Play
                                 </button>
@@ -594,7 +608,7 @@ const Home: NextPage = () => {
                             {address === j1 && (
                               <button
                                 onClick={handleReveal}
-                                disabled={address !== j1 || Number(c2) === 0}
+                                disabled={address !== j1 || Number(c2) === 0||isDisabled}
                                 className="border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[100px]"
                               >
                                 Reveal
@@ -631,7 +645,7 @@ const Home: NextPage = () => {
                         step={0.001}
                       ></input>
                       <button
-                        ref={refDeploy}
+                        disabled={isDisabled}
                         className="border-2 mt-4 bg-amber-300 disabled:bg-gray-300 rounded-[10px] w-[80px]"
                         onClick={() => {
                           handleCommit();

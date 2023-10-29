@@ -5,11 +5,9 @@ type Props = {
 };
 const RadioGroup = ({ radio, setRadio }: Props) => {
   const handleSection = (e: SyntheticEvent<HTMLInputElement, Event>) => {
-    console.log("E is: ", e, " value is:", e.currentTarget.value);
     setRadio(parseInt(e.currentTarget.value));
   };
   useEffect(() => {}, [radio]);
-  console.log("RADIO", radio, radio === 1);
   return (
     <div className="flex flex-col">
       <div className="flex flex-row my-2">
