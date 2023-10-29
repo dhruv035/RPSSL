@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "^1.1.3",
+    "@wagmi/core": "^1.4.5",
     "alchemy-sdk": "^2.10.1",
     "mongodb": "^6.2.0",
     "next": "^13.4.19",

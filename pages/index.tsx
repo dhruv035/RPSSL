@@ -1,20 +1,20 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { NextPage } from "next";
-import { reset } from "../frontend-services/localServices";
 import dynamic from "next/dynamic";
 const web3 = require("web3");
-import Head from "next/head";
 import RadioGroup from "./components/Radio";
 import { ChangeEvent, useEffect, useState, useRef } from "react";
 import {
   useAccount,
   useBalance,
   readContracts,
+  useContractRead,
   useContractReads,
   useContractWrite,
   usePublicClient,
   useWalletClient,
 } from "wagmi";
+import { readContract } from "@wagmi/core";
 import {
   parseEther,
   hashMessage,
@@ -23,6 +23,7 @@ import {
   formatEther,
   isAddress,
   isAddressEqual,
+  Address,
 } from "viem";
 import contractabi from "../contractabi.json";
 import {
@@ -41,11 +42,13 @@ import { element } from "@rainbow-me/rainbowkit/dist/css/reset.css";
 
 export type Deployement = {
   address: string;
-  j1?: string;
-  j2?: string;
+  j1: string;
+  j2: string;
 };
 const Home: NextPage = () => {
   //states
+
+  const [isBack, setIsBack] = useState(false);
   const [isCreator, setIsCreator] = useState<boolean>(false);
   const [diff, setDiff] = useState<number>(0);
   const publicClient = usePublicClient({ chainId: 5 });
@@ -62,7 +65,6 @@ const Home: NextPage = () => {
   const [selectedDeploy, setSelectedDeploy] = useState<Deployement | null>(
     null
   );
-  const [contractData, setContractData] = useState<AssetTransfersResult[]>([]);
   const [stake, setStake] = useState<string>("");
   const [winner, setWinner] = useState<string>("");
   const [deployements, setDeployements] = useState<Array<Deployement> | null>(
@@ -83,7 +85,54 @@ const Home: NextPage = () => {
   const refDeploy = useRef<HTMLButtonElement>(null);
   const refBack = useRef<HTMLButtonElement>(null);
 
-  //contract reads
+  //contract read hooks and their respective sideEffect
+
+  const { data: j1 } = useContractRead({
+    address: selectedDeploy?.address as `0x${string}`,
+    abi: contractabi.abi,
+    functionName: "j1",
+  });
+
+  const { data: j2 } = useContractRead({
+    address: selectedDeploy?.address as `0x${string}`,
+    abi: contractabi.abi,
+    functionName: "j2",
+  });
+
+  //last Action timestamp
+  const { data: lastAction } = useContractRead({
+    watch: true,
+    address: selectedDeploy?.address as `0x${string}`,
+    abi: contractabi.abi,
+    functionName: "lastAction",
+  });
+
+  console.log("EBER", lastAction);
+  useEffect(() => {
+    const difference = Math.floor(Date.now() / 1000) - Number(lastAction);
+    setDiff(difference);
+
+    console.log("HEY LAST ACTION CHECK ", lastAction);
+
+    if (selectedDeploy) fetchContractTx(selectedDeploy);
+  }, [lastAction]);
+
+  const { data: c2 } = useContractRead({
+    watch: true,
+    address: selectedDeploy?.address as `0x${string}`,
+    abi: contractabi.abi,
+    functionName: "c2",
+  });
+
+  //Amount staked in the game
+  const { data: stakedAmount } = useContractRead({
+    address: selectedDeploy?.address as `0x${string}`,
+    abi: contractabi.abi,
+    functionName: "stake",
+  });
+  useEffect(() => {
+    if (typeof stakedAmount === "bigint") setStake(formatEther(stakedAmount));
+  }, [stakedAmount]);
 
   const { data: dataReads, error: errorReads } = useContractReads({
     watch: true,
@@ -114,11 +163,11 @@ const Home: NextPage = () => {
           {
             constant: true,
             inputs: [],
-            name: "c2",
+            name: "j2",
             outputs: [
               {
                 name: "",
-                type: "uint8",
+                type: "address",
               },
             ],
             payable: false,
@@ -126,7 +175,7 @@ const Home: NextPage = () => {
             type: "function",
           },
         ],
-        functionName: "c2",
+        functionName: "j2",
       },
       {
         address: selectedDeploy?.address as `0x${string}`,
@@ -174,7 +223,7 @@ const Home: NextPage = () => {
           {
             constant: true,
             inputs: [],
-            name: "j1",
+            name: "j2",
             outputs: [
               {
                 name: "",
@@ -218,24 +267,12 @@ const Home: NextPage = () => {
   console.log("MOVE", userMove);
   //sideEffects
   useEffect(() => {
-    if (!dataReads) return;
-    if (dataReads[0] && typeof dataReads[0].result === "bigint")
-      setStake(formatEther(dataReads[0].result));
-    if (dataReads[2] && typeof dataReads[2].result === "bigint") {
-      const difference =
-        Math.floor(Date.now() / 1000) - Number(dataReads[2].result);
-
-      setDiff(difference);
-    }
-  }, [dataReads]);
-
-  useEffect(() => {
-    if (!dataReads) return;
     let intervalId: any;
-
-    if (diff > 60 * 5 && dataReads) {
-      if (dataReads[1] && Number(dataReads[1].result) === 0)
-        setIsCreator(false);
+    if (!selectedDeploy) return;
+    console.log("TRACKING DIFF", diff);
+    if (diff > 60 * 5) {
+      console.log("lastAction", c2);
+      if (Number(c2) === 0) setIsCreator(false);
       else setIsCreator(true);
       setTimer(true);
       return;
@@ -254,25 +291,25 @@ const Home: NextPage = () => {
     }
   }, [user]);
 
+  console.log("deployements", deployements);
   useEffect(() => {
-    if (!selectedDeploy?.address) {
-      {
-        setContractData([]);
-        setWinner("");
-        setUserMove("");
-      }
+    if (!selectedDeploy) {
+      resetGameStates();
     } else {
       const move = localStorage.getItem(
         selectedDeploy.address + ":" + address + ":move:"
       );
+      console.log("MOVEEE", move);
       if (move?.length) setUserMove(move);
-      else if(address!=selectedDeploy.j1&&dataReads)
-      {
-        setUserMove(Number(dataReads[1].result).toString())
-      }
-      fetchContractTx();
     }
   }, [selectedDeploy]);
+
+  const resetGameStates = () => {
+    setWinner("");
+    setUserMove("");
+    setDiff(0);
+    setTimer(false);
+  };
   //Functions
   useEffect(() => {
     loadDeployements();
@@ -284,10 +321,10 @@ const Home: NextPage = () => {
     }
   }, [address]);
 
-  const fetchContractTx = async () => {
+  const fetchContractTx = async (deployement: Deployement) => {
     const data = await alchemy.core.getAssetTransfers({
       fromBlock: "0x0",
-      fromAddress: selectedDeploy?.address ? selectedDeploy.address : undefined,
+      fromAddress: deployement.address,
       category: [
         "external",
         "internal",
@@ -296,13 +333,27 @@ const Home: NextPage = () => {
         "erc1155",
       ] as Array<AssetTransfersCategory>,
     });
+    const dataTo = await alchemy.core.getAssetTransfers({
+      fromBlock: "0x0",
+      toAddress: deployement.address,
+      category: [
+        "internal",
+      ] as Array<AssetTransfersCategory>,
+    });
+
     console.log("ABC", data);
     if (data.transfers.length) {
-      setContractData(data.transfers);
       if (data.transfers.length === 2) {
         setWinner("tie");
       } else data.transfers[0].to && setWinner(data.transfers[0].to);
     }
+  };
+
+  const handleSelection = async (deployement: Deployement) => {
+    await fetchContractTx(deployement);
+    setSelectedDeploy(deployement);
+    setUser("init");
+    refBack.current?.removeAttribute("disabled");
   };
 
   const loadDeployements = async () => {
@@ -311,56 +362,23 @@ const Home: NextPage = () => {
     const data = await Promise.all(
       result.data.map((data: Deployement) => {
         return new Promise(async (resolve, reject) => {
-          const a = await readContracts({
-            contracts: [
-              {
-                address: data.address as `0x${string}`,
-                abi: [
-                  {
-                    constant: true,
-                    inputs: [],
-                    name: "j2",
-                    outputs: [
-                      {
-                        name: "",
-                        type: "address",
-                      },
-                    ],
-                    payable: false,
-                    stateMutability: "view",
-                    type: "function",
-                  },
-                ],
-                functionName: "j2",
-              },
-              {
-                address: data.address as `0x${string}`,
-                abi: [
-                  {
-                    constant: true,
-                    inputs: [],
-                    name: "j1",
-                    outputs: [
-                      {
-                        name: "",
-                        type: "address",
-                      },
-                    ],
-                    payable: false,
-                    stateMutability: "view",
-                    type: "function",
-                  },
-                ],
-                functionName: "j1",
-              },
-            ],
+          const j2Inner = await readContract({
+            address: data.address as `0x${string}`,
+            abi: contractabi.abi,
+            functionName: "j2",
           });
-          const fetchData = { ...data, j2: a[0].result, j1: a[1].result };
+          const j1Inner = await readContract({
+            address: data.address as `0x${string}`,
+            abi: contractabi.abi,
+            functionName: "j1",
+          });
+
+          const fetchData = { ...data, j2: j2Inner, j1: j1Inner };
           resolve(fetchData);
         });
       })
     );
-    console.log("CHE", address, data, data[0].j2 == address);
+    console.log("Unfiltered", data);
     const filteredData = data.filter((element) => {
       return element.j1 == address || element.j2 == address;
     });
@@ -436,8 +454,6 @@ const Home: NextPage = () => {
     });
 
     if (!hash) return;
-    setTimeout(() => {}, 3000);
-
     const receipt = await publicClient.waitForTransactionReceipt({
       hash: hash,
       confirmations: 1,
@@ -445,23 +461,23 @@ const Home: NextPage = () => {
 
     const newDeployement: Deployement = {
       address: deployAddress,
+      j1: address,
+      j2: target,
     };
     const updation = await addDeployement(newDeployement);
-    setUser("select");
-
+    await fetchContractTx(newDeployement);
+    setSelectedDeploy(newDeployement);
     setRadio(0);
     refDeploy.current?.removeAttribute("disabled");
+    setUser("init");
   };
 
   const handleBack = () => {
     console.log("HERE", user);
-    if (user !== "init" && user !== "select") setUser("init");
-    else {
-      setSelectedDeploy(null);
-      setUser("select");
-      setUserMove("");
-      setWinner("");
-    }
+    resetGameStates();
+    setSelectedDeploy(null);
+    setUser("select");
+    setIsCreator(false)
   };
 
   const handleStake = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -495,9 +511,9 @@ const Home: NextPage = () => {
     });
 
     refReveal.current?.removeAttribute("disabled");
-    handleBack();
   };
 
+  console.log("CHECK ME", j1, j2, typeof j1, typeof address);
   const handlePlay = async () => {
     if (radio === 0) {
       alert("No option Selected");
@@ -525,15 +541,15 @@ const Home: NextPage = () => {
     //})
 
     refPlay.current?.removeAttribute("disabled");
-    handleBack();
   };
-
+  console.log("HERERER", isCreator);
   const handleTimeout = async () => {
     if (!selectedDeploy) return;
 
     refTimeout.current?.setAttribute("disabled", "");
     if (!dataReads) return;
     let txHash;
+
     if (isCreator) {
       const { hash } = await writej1Timeout();
       txHash = hash;
@@ -544,8 +560,8 @@ const Home: NextPage = () => {
     const receipt = await publicClient.waitForTransactionReceipt({
       hash: txHash,
     });
-    fetchContractTx();
     refTimeout.current?.removeAttribute("disabled");
+    fetchContractTx(selectedDeploy);
   };
 
   return (
@@ -582,7 +598,7 @@ const Home: NextPage = () => {
               <div className="text-[40px] text-red-400">
                 Please Select The Correct Chain
               </div>
-            ) : user === "select" && client?.chain?.id === 5 ? (
+            ) : user === "select" ? (
               <div>
                 {deployements &&
                   deployements.length > 0 && ( //List existing Games if in selection stage and previous deployements exists
@@ -594,9 +610,7 @@ const Home: NextPage = () => {
                           <button
                             className="outline-2 rounded-[10px] bg-blue-300 w-[100px] ml-4 disabled:bg-gray-300"
                             onClick={() => {
-                              setSelectedDeploy(deployement);
-                              setUser("init");
-                              refBack.current?.removeAttribute("disabled");
+                              handleSelection(deployement);
                             }}
                           >
                             Select
@@ -620,13 +634,11 @@ const Home: NextPage = () => {
             ) : (
               //Initial user stage when a contract is selected or a new game is selected
               <div>
-                {selectedDeploy?.address && dataReads ? ( //If a selectedDeploy.address is selected and its data has been fetched i
+                {selectedDeploy?.address ? ( //If a selectedDeploy.address is selected and its data has been fetched i
                   <>
                     {userMove !== "0" && <div>Your move: {userMove}</div>}
-                    {Number(dataReads[1].result) !== 0 && address==selectedDeploy.j1&&(
-                      <div>
-                        Enemy move: {Number(dataReads[1].result).toString()}
-                      </div>
+                    {Number(c2) !== 0 && address == selectedDeploy.j1 && (
+                      <div>Enemy move: {Number(c2).toString()}</div>
                     )}
                     {
                       winner !== "" ? <div></div> : <div></div>
@@ -645,8 +657,10 @@ const Home: NextPage = () => {
                         <div>Its a Tie</div>
                       ) : winner == address?.toLowerCase() ? (
                         <div>You are the winner!</div>
+                      ) : c2 && Number(c2) === 0 ? (
+                        <div>You Didnt join the game and it timed out</div>
                       ) : (
-                        <div>Your lost</div>
+                        <div>You lost</div>
                       )
                     ) : timer ? (
                       <>
@@ -668,59 +682,36 @@ const Home: NextPage = () => {
                     ) : (
                       <>
                         <div>Time Elapsed in seconds : {diff} seconds</div>
-                        {user === "init" ? ( //If user is in init stage
+                        {user === "init" && ( //If user is in init stage
                           <>
-                            {address === dataReads[3].result && (
-                              <button
-                                className="border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[100px]"
-                                onClick={() => {
-                                  setUser("play");
-                                }}
-                                disabled={
-                                  address !== dataReads[3].result ||
-                                  Number(dataReads[1].result) !== 0
-                                }
-                              >
-                                Play
-                              </button>
+                            {address === j2 && (
+                              <>
+                                {!c2 && (
+                                  <RadioGroup
+                                    radio={radio}
+                                    setRadio={setRadio}
+                                  />
+                                )}
+                                <button
+                                  className="border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[100px]"
+                                  ref={refPlay}
+                                  onClick={handlePlay}
+                                  disabled={address !== j2 || Number(c2) !== 0}
+                                >
+                                  Play
+                                </button>
+                              </>
                             )}
-                            {address === dataReads[4].result && (
+                            {address === j1 && (
                               <button
-                                onClick={() => setUser("reveal")}
-                                disabled={
-                                  address !== dataReads[4].result ||
-                                  Number(dataReads[1].result) === 0
-                                }
-                                className="border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[100px]"
-                              >
-                                Reveal
-                              </button>
-                            )}
-                          </>
-                        ) : user === "play" ? (
-                          <>
-                            <RadioGroup radio={radio} setRadio={setRadio} />
-                            <button
-                              ref={refPlay}
-                              onClick={handlePlay}
-                              className="border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[100px]"
-                            >
-                              Play
-                            </button>
-                          </>
-                        ) : (
-                          user === "reveal" && (
-                            <div className="flex flex-col">
-                              Reveal Choice
-                              <button
-                                ref={refReveal}
                                 onClick={handleReveal}
-                                className="mt-2 border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[100px]"
+                                disabled={address !== j1 || Number(c2) === 0}
+                                className="border-2 bg-blue-400 disabled:bg-gray-300 rounded-[10px] w-[100px]"
                               >
                                 Reveal
                               </button>
-                            </div>
-                          )
+                            )}
+                          </>
                         )}
                       </>
                     )}
